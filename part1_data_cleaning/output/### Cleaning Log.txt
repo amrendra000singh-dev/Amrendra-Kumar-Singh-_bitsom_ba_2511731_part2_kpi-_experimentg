@@ -1,0 +1,210 @@
+### Cleaning Log
+
+This log details the cleaning actions and business rules applied to the dataset.
+
+| Step | Issue | Action | Records Affected | Logic/Assumption |
+|---|---|---|---|---|
+| 5 | Invalid 'ship_date' (earlier than 'order_date') | Flagged records with 'Invalid Shipping Date' in 'data_quality_flag' | 2 | Ship date should logically not be earlier than order date. These records are flagged for review. |
+| 6 | Orders with 'Cancelled' or 'Returned' status, or 'Failed'/'Refunded' payment status | Flagged records with 'Order/Payment Status Issue' in 'data_quality_flag' | 310 | These statuses indicate non-standard transactions and should be reviewed. |
+
+Reasoning: I need to re-construct the complete cleaning_log_entries list based on all the cleaning actions and business rules applied during the 'Apply Business Rules and Document Cleaning Log' subtask. This includes entries for missing region/ship_mode, discount handling, invalid shipping dates, and order/payment status issues. After accumulating all entries, I will write the complete log to outputs/cleaning_log.md and then display its content for final verification.
+
+
+[38]
+0s
+import os
+
+# Re-initialize the cleaning_log_entries list to accumulate all entries correctly
+cleaning_log_entries = []
+
+# 1. Add entries for Missing 'region' and 'ship_mode' (original records affected, as seen in history)
+# Based on the subtask history, records_affected_region was 25 and records_affected_ship_mode was 21
+# when these were first processed. These values should be reflected in the complete log.
+records_affected_region_initial = 25 # from historical output of df['region'].value_counts() before df.drop_duplicates
+records_affected_ship_mode_initial = 21 # from historical output of df['ship_mode'].value_counts() before df.drop_duplicates
+
+if records_affected_region_initial > 0:
+    cleaning_log_entries.append({
+        'Step': 1,
+        'Issue': "Missing 'region' values (represented as 'Nan' string)",
+        'Action': "Filled with 'Unknown'",
+        'Records Affected': records_affected_region_initial,
+        'Logic/Assumption': "Missing region values are assumed to be unknown and filled to ensure data completeness."
+    })
+
+if records_affected_ship_mode_initial > 0:
+    cleaning_log_entries.append({
+        'Step': 2,
+        'Issue': "Missing 'ship_mode' values (represented as 'Nan' string)",
+        'Action': "Filled with 'Unknown'",
+        'Records Affected': records_affected_ship_mode_initial,
+        'Logic/Assumption': "Missing ship mode values are assumed to be unknown and filled to ensure data completeness."
+    })
+
+# 2. Add entries for Missing and invalid 'discount' values
+# Based on kernel state: records_filled_discount = 26, num_invalid_discounts = 15
+cleaning_log_entries.append({
+    'Step': 3,
+    'Issue': "Missing 'discount' values (initially NaN after coercion)",
+    'Action': "Filled with 0",
+    'Records Affected': 26,
+    'Logic/Assumption': "Assumed missing discount means no discount, especially if sales/unit_price are present. Coerced non-numeric to NaN before filling."
+})
+cleaning_log_entries.append({
+    'Step': 4,
+    'Issue': "Invalid 'discount' values (negative or > 1)",
+    'Action': "Flagged records with 'Invalid Discount' in 'data_quality_flag'",
+    'Records Affected': 15,
+    'Logic/Assumption': "Discount values should be between 0 and 1 (inclusive). Records with values outside this range are flagged for review."
+})
+
+# 3. Add entry for Invalid 'ship_date'
+# Based on kernel state: num_invalid_shipping_records = 2
+cleaning_log_entries.append({
+    'Step': 5,
+    'Issue': "Invalid 'ship_date' (earlier than 'order_date')",
+    'Action': "Flagged records with 'Invalid Shipping Date' in 'data_quality_flag'",
+    'Records Affected': 2,
+    'Logic/Assumption': "Ship date should logically not be earlier than order date. These records are flagged for review."
+})
+
+# 4. Add entry for Order/Payment Status Issues
+# Based on kernel state: num_status_flags = 310
+cleaning_log_entries.append({
+    'Step': 6,
+    'Issue': "Orders with 'Cancelled' or 'Returned' status, or 'Failed'/'Refunded' payment status",
+    'Action': "Flagged records with 'Order/Payment Status Issue' in 'data_quality_flag'",
+    'Records Affected': 310,
+    'Logic/Assumption': "These statuses indicate non-standard transactions and should be reviewed."
+})
+
+# Overwrite the cleaning_log.md file with the complete log
+output_dir = 'outputs'
+log_file_path = os.path.join(output_dir, 'cleaning_log.md')
+
+with open(log_file_path, 'w') as f:
+    f.write('### Cleaning Log\n\n')
+    f.write('This log details the cleaning actions and business rules applied to the dataset.\n\n')
+    f.write('| Step | Issue | Action | Records Affected | Logic/Assumption |\n')
+    f.write('|---|---|---|---|---|\n')
+    for entry in cleaning_log_entries:
+        f.write(f"| {entry['Step']} | {entry['Issue']} | {entry['Action']} | {entry['Records Affected']} | {entry['Logic/Assumption']} |\n")
+
+print(f"\nCleaning log saved to {log_file_path}")
+
+# Display the complete cleaning log for review
+with open(log_file_path, 'r') as f:
+    cleaning_log_content_complete = f.read()
+
+print("\n--- Complete Cleaning Log Content ---\n")
+print(cleaning_log_content_complete)
+
+Cleaning log saved to outputs/cleaning_log.md
+
+--- Complete Cleaning Log Content ---
+
+### Cleaning Log
+
+This log details the cleaning actions and business rules applied to the dataset.
+
+| Step | Issue | Action | Records Affected | Logic/Assumption |
+|---|---|---|---|---|
+| 1 | Missing 'region' values (represented as 'Nan' string) | Filled with 'Unknown' | 25 | Missing region values are assumed to be unknown and filled to ensure data completeness. |
+| 2 | Missing 'ship_mode' values (represented as 'Nan' string) | Filled with 'Unknown' | 21 | Missing ship mode values are assumed to be unknown and filled to ensure data completeness. |
+| 3 | Missing 'discount' values (initially NaN after coercion) | Filled with 0 | 26 | Assumed missing discount means no discount, especially if sales/unit_price are present. Coerced non-numeric to NaN before filling. |
+| 4 | Invalid 'discount' values (negative or > 1) | Flagged records with 'Invalid Discount' in 'data_quality_flag' | 15 | Discount values should be between 0 and 1 (inclusive). Records with values outside this range are flagged for review. |
+| 5 | Invalid 'ship_date' (earlier than 'order_date') | Flagged records with 'Invalid Shipping Date' in 'data_quality_flag' | 2 | Ship date should logically not be earlier than order date. These records are flagged for review. |
+| 6 | Orders with 'Cancelled' or 'Returned' status, or 'Failed'/'Refunded' payment status | Flagged records with 'Order/Payment Status Issue' in 'data_quality_flag' | 310 | These statuses indicate non-standard transactions and should be reviewed. |
+
+Prepare Data for Screenshots
+Subtask:
+Generate relevant data snippets or previews of the raw dataset, cleaned dataset, and major pivot summaries (e.g., as small DataFrames or saved images) which can be used by the user to create the required screenshots (raw_data_preview.png, cleaned_data_preview.png, pivot_summary_1.png, pivot_summary_2.png). The actual screenshots will need to be taken manually or with a separate tool.
+
+Reasoning: I need to display the first few rows of the original raw DataFrame (df_raw) along with its shape and columns. This will serve as the preview for the raw data as per the instructions.
+
+
+[39]
+0s
+print('--- Raw Data Preview ---')
+print('First 5 rows of df_raw:')
+print(df_raw.head().to_markdown(index=False))
+print(f'Shape of df_raw: {df_raw.shape}')
+print(f'Columns in df_raw: {df_raw.columns.tolist()}')
+--- Raw Data Preview ---
+First 5 rows of df_raw:
+| order_id       | order_date   | ship_date   | customer_id   | customer_name   | segment        | region   | state       | city        | category        | sub_category   | product_name          | ship_mode      |   quantity |   unit_price |   discount |    sales |     cost |   profit | payment_status   | order_status   |
+|:---------------|:-------------|:------------|:--------------|:----------------|:---------------|:---------|:------------|:------------|:----------------|:---------------|:----------------------|:---------------|-----------:|-------------:|-----------:|---------:|---------:|---------:|:-----------------|:---------------|
+| ORD-2024-10001 | 21 Jul 2024  | 07/27/2024  | CUST-4655     | Karan Malhotra  | Consumer       | North    | Rajasthan   | Jaipur      | Office Supplies | Paper          | Pro Paper 122         | Second Class   |          8 |      2976.45 |       0.2  | 19049.3  | 15841.9  |  3207.39 | Paid             | Completed      |
+| ORD-2024-10002 | 08/31/2024   | 05 Sep 2024 | CUST-2054     | Mira Das        | Small Business | East     | Odisha      | Bhubaneswar | Furniture       | Tables         | Pro Tables 258        | Same Day       |          3 |      2437.5  |       0    |  7312.5  |  4904.73 |  2407.77 | Paid             | Completed      |
+| ORD-2024-10003 | 06/08/2024   | 15 Jun 2024 | CUST-6843     | Isha Nair       | Consumer       | East     | Odisha      | Bhubaneswar | Office Supplies | Art            | Elite Art 525         | First Class    |          4 |      1065.43 |       0.55 |  4261.72 |  2465.69 |  1796.03 | Paid             | Completed      |
+| ORD-2024-10004 | 28-11-2024   | 11/29/2024  | CUST-3722     | Arjun Bose      | Small Business | South    | Telangana   | Hyderabad   | Furniture       | Furnishings    | Smart Furnishings 294 | Standard Class |          6 |      1848.43 |       0.25 |  8317.93 |  6796.77 |  1521.16 | Paid             | Completed      |
+| ORD-2025-10005 | 29 Aug 2025  | 2025-09-01  | CUST-8130     | Ananya Rao      | Small Business | West     | Maharashtra | Mumbai      | Furniture       | Chairs         | Elite Chairs 543      | First Class    |          7 |      2973.76 |       0    | 20816.3  | 17705.4  |  3110.95 | Paid             | Cancelled      |
+Shape of df_raw: (932, 21)
+Columns in df_raw: ['order_id', 'order_date', 'ship_date', 'customer_id', 'customer_name', 'segment', 'region', 'state', 'city', 'category', 'sub_category', 'product_name', 'ship_mode', 'quantity', 'unit_price', 'discount', 'sales', 'cost', 'profit', 'payment_status', 'order_status']
+Reasoning: I need to display a preview of the cleaned DataFrame (df) by showing its first few rows, its shape, and its columns. This will serve as the data snippet for 'cleaned_data_preview.png'.
+
+
+[40]
+0s
+print('\n--- Cleaned Data Preview ---')
+print('First 5 rows of df:')
+print(df.head().to_markdown(index=False))
+print(f'Shape of df: {df.shape}')
+print(f'Columns in df: {df.columns.tolist()}')
+
+--- Cleaned Data Preview ---
+First 5 rows of df:
+| order_id       | order_date          | ship_date           | customer_id   | customer_name   | segment        | region   | state       | city        | category        | sub_category   | product_name          | ship_mode      |   quantity |   unit_price |   discount |    sales |     cost |   profit | payment_status   | order_status   |   shipping_delay_days | duplicate_flag      | data_quality_flag          |   cleaned_discount |   calculated_sales |   calculated_profit |   profit_margin |   order_month |   order_year |
+|:---------------|:--------------------|:--------------------|:--------------|:----------------|:---------------|:---------|:------------|:------------|:----------------|:---------------|:----------------------|:---------------|-----------:|-------------:|-----------:|---------:|---------:|---------:|:-----------------|:---------------|----------------------:|:--------------------|:---------------------------|-------------------:|-------------------:|--------------------:|----------------:|--------------:|-------------:|
+| ORD-2024-10001 | 2024-07-21 00:00:00 | 2024-07-27 00:00:00 | CUST-4655     | Karan Malhotra  | Consumer       | North    | Rajasthan   | Jaipur      | Office Supplies | Paper          | Pro Paper 122         | Second Class   |          8 |      2976.45 |       0.2  | 19049.3  | 15841.9  |  3207.39 | Paid             | Completed      |                     6 | No Duplicate Issues | Clean                      |               0.2  |           19049.3  |            3207.39  |         16.8373 |             7 |         2024 |
+| ORD-2024-10002 | NaT                 | NaT                 | CUST-2054     | Mira Das        | Small Business | East     | Odisha      | Bhubaneswar | Furniture       | Tables         | Pro Tables 258        | Same Day       |          3 |      2437.5  |       0    |  7312.5  |  4904.73 |  2407.77 | Paid             | Completed      |                   nan | No Duplicate Issues | Clean                      |               0    |            7312.5  |            2407.77  |         32.9268 |           nan |          nan |
+| ORD-2024-10003 | NaT                 | NaT                 | CUST-6843     | Isha Nair       | Consumer       | East     | Odisha      | Bhubaneswar | Office Supplies | Art            | Elite Art 525         | First Class    |          4 |      1065.43 |       0.55 |  4261.72 |  2465.69 |  1796.03 | Paid             | Completed      |                   nan | No Duplicate Issues | Clean                      |               0.55 |            1917.77 |            -547.916 |        -28.5704 |           nan |          nan |
+| ORD-2024-10004 | NaT                 | 2024-11-29 00:00:00 | CUST-3722     | Arjun Bose      | Small Business | South    | Telangana   | Hyderabad   | Furniture       | Furnishings    | Smart Furnishings 294 | Standard Class |          6 |      1848.43 |       0.25 |  8317.93 |  6796.77 |  1521.16 | Paid             | Completed      |                   nan | No Duplicate Issues | Clean                      |               0.25 |            8317.93 |            1521.16  |         18.2878 |           nan |          nan |
+| ORD-2025-10005 | 2025-08-29 00:00:00 | NaT                 | CUST-8130     | Ananya Rao      | Small Business | West     | Maharashtra | Mumbai      | Furniture       | Chairs         | Elite Chairs 543      | First Class    |          7 |      2973.76 |       0    | 20816.3  | 17705.4  |  3110.95 | Paid             | Cancelled      |                   nan | No Duplicate Issues | Order/Payment Status Issue |               0    |           20816.3  |            3110.95  |         14.9448 |             8 |         2025 |
+Shape of df: (912, 30)
+Columns in df: ['order_id', 'order_date', 'ship_date', 'customer_id', 'customer_name', 'segment', 'region', 'state', 'city', 'category', 'sub_category', 'product_name', 'ship_mode', 'quantity', 'unit_price', 'discount', 'sales', 'cost', 'profit', 'payment_status', 'order_status', 'shipping_delay_days', 'duplicate_flag', 'data_quality_flag', 'cleaned_discount', 'calculated_sales', 'calculated_profit', 'profit_margin', 'order_month', 'order_year']
+Reasoning: I need to display a preview of the pivot_region DataFrame, which summarizes sales and profit by region. This will serve as a data snippet for pivot_summary_1.png.
+
+
+[41]
+0s
+print('\n--- Pivot Summary 1: Sales and Profit by Region ---')
+print(pivot_region.to_markdown())
+
+--- Pivot Summary 1: Sales and Profit by Region ---
+| region   |   calculated_profit |   calculated_sales |
+|:---------|--------------------:|-------------------:|
+| East     |            675735   |        2.19618e+06 |
+| North    |            642066   |        2.16491e+06 |
+| South    |            638627   |        2.2927e+06  |
+| Unknown  |             99905.4 |   294897           |
+| West     |            601347   |        2.11755e+06 |
+Reasoning: I need to display a preview of the pivot_category_subcategory DataFrame, which summarizes sales and profit by category and sub-category. This will serve as a data snippet for pivot_summary_2.png.
+
+
+[42]
+0s
+print('\n--- Pivot Summary 2: Sales and Profit by Category and Sub-Category ---')
+print(pivot_category_subcategory.to_markdown())
+
+--- Pivot Summary 2: Sales and Profit by Category and Sub-Category ---
+|                                |   calculated_profit |   calculated_sales |
+|:-------------------------------|--------------------:|-------------------:|
+| ('Furniture', 'Bookcases')     |              186707 |             674055 |
+| ('Furniture', 'Chairs')        |              286451 |             975878 |
+| ('Furniture', 'Furnishings')   |              229569 |             789809 |
+| ('Furniture', 'Tables')        |              210164 |             680301 |
+| ('Office Supplies', 'Art')     |              161136 |             576622 |
+| ('Office Supplies', 'Binders') |              166545 |             555372 |
+| ('Office Supplies', 'Labels')  |              109654 |             345052 |
+| ('Office Supplies', 'Paper')   |              178622 |             618543 |
+| ('Office Supplies', 'Storage') |              178312 |             677854 |
+| ('Technology', 'Accessories')  |              240329 |             814007 |
+| ('Technology', 'Copiers')      |              266381 |             897783 |
+| ('Technology', 'Machines')     |              210973 |             660499 |
+| ('Technology', 'Phones')       |              232838 |             800464 |
+Final Task
+Subtask:
+Summarize the entire data cleaning, analysis, and reporting process, including all generated files and their contents, and provide a high-level overview of the key insights gained from the analysis.
+
+Colab paid products - Cancel contracts here

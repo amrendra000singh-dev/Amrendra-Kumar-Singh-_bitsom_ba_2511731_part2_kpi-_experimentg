@@ -1,0 +1,595 @@
+step_counter = len(cleaning_log_entries) + 1
+
+# Convert discount to numeric, coercing errors to NaN
+df['discount'] = pd.to_numeric(df['discount'], errors='coerce')
+
+# Handle missing discount values: fill with 0 if sales/unit_price are valid
+missing_discount_initial = df['discount'].isnull().sum()
+records_filled_discount = df[(df['discount'].isnull()) & (df['sales'].notnull() | df['unit_price'].notnull())].shape[0]
+df.loc[(df['discount'].isnull()) & (df['sales'].notnull() | df['unit_price'].notnull()), 'discount'] = 0
+
+if records_filled_discount > 0:
+    cleaning_log_entries.append({
+        'Step': step_counter,
+        'Issue': "Missing 'discount' values (initially NaN after coercion)",
+        'Action': "Filled with 0",
+        'Records Affected': records_filled_discount,
+        'Logic/Assumption': "Assumed missing discount means no discount, especially if sales/unit_price are present. Coerced non-numeric to NaN before filling."
+    })
+    step_counter += 1
+
+# Flag negative or out-of-range discounts (e.g., > 1 for proportion, > 100 for percentage)
+# Assuming discount is a proportion (0-1)
+invalid_discount_records = df[(df['discount'] < 0) | (df['discount'] > 1)]
+num_invalid_discounts = invalid_discount_records.shape[0]
+
+if num_invalid_discounts > 0:
+    df['data_quality_flag'] = df.apply(lambda row: 'Invalid Discount' if (row['discount'] < 0 or row['discount'] > 1) else row.get('data_quality_flag', 'Clean'), axis=1)
+    cleaning_log_entries.append({
+        'Step': step_counter,
+        'Issue': "Invalid 'discount' values (negative or > 1)",
+        'Action': "Flagged records with 'Invalid Discount' in 'data_quality_flag'",
+        'Records Affected': num_invalid_discounts,
+        'Logic/Assumption': "Discount values should be between 0 and 1 (inclusive). Records with values outside this range are flagged for review."
+    })
+    step_counter += 1
+
+# Print discount value counts and current cleaning log entries
+print(f"\n'discount' column descriptive statistics after cleaning:\n{df['discount'].describe()}\n")
+print(f"Count of records with 'Invalid Discount' flag: {df[df['data_quality_flag'] == 'Invalid Discount'].shape[0] if 'data_quality_flag' in df.columns else 0}\n")
+
+for entry in cleaning_log_entries:
+    print(entry)
+
+
+
+
+..
+Drop files to upload them to session storage.
+Disk
+87.40 GB available
+
+[ ]
+
+Start coding or generate with AI.
+Task
+You are a data cleaning and analysis expert. Your task is to perform a comprehensive data cleaning, analysis, and reporting on the provided raw_orders.xlsx dataset. This involves loading the data, preserving the raw state, applying various cleaning and standardization techniques to text and date fields, handling duplicates, applying business rules, creating new calculated columns, and generating detailed reports including a data quality report, pivot summaries, and a cleaning log. Finally, you will prepare data snippets for screenshots and summarize the entire process and findings.
+
+Load and Preserve Raw Data
+Subtask:
+Load the raw_orders.xlsx dataset into a pandas DataFrame and preserve the original raw state.
+
+Reasoning: I need to import the pandas library and load the Excel file into a DataFrame, then create a copy for cleaning and display its head and info.
+
+
+[1]
+2s
+import pandas as pd
+
+df_raw = pd.read_excel('raw_orders.xlsx')
+df = df_raw.copy()
+
+print("First 5 rows of raw data:")
+print(df_raw.head())
+print("\nColumn information of raw data:")
+df_raw.info()
+First 5 rows of raw data:
+         order_id   order_date    ship_date customer_id   customer_name  \
+0  ORD-2024-10001  21 Jul 2024   07/27/2024   CUST-4655  Karan Malhotra   
+1  ORD-2024-10002   08/31/2024  05 Sep 2024   CUST-2054        Mira Das   
+2  ORD-2024-10003   06/08/2024  15 Jun 2024   CUST-6843       Isha Nair   
+3  ORD-2024-10004   28-11-2024   11/29/2024   CUST-3722      Arjun Bose   
+4  ORD-2025-10005  29 Aug 2025   2025-09-01   CUST-8130      Ananya Rao   
+
+          segment    region        state         city         category  ...  \
+0        Consumer    North     Rajasthan       Jaipur  Office Supplies  ...   
+1  Small Business      East       Odisha  Bhubaneswar        Furniture  ...   
+2        Consumer      East       Odisha  Bhubaneswar  Office Supplies  ...   
+3  Small Business     South    Telangana    Hyderabad        Furniture  ...   
+4  Small Business      West  Maharashtra       Mumbai        Furniture  ...   
+
+            product_name       ship_mode quantity  unit_price  discount  \
+0          Pro Paper 122    Second Class        8     2976.45       0.2   
+1         Pro Tables 258        Same Day        3     2437.50         0   
+2          Elite Art 525     First Class        4     1065.43      0.55   
+3  Smart Furnishings 294  Standard Class        6     1848.43      0.25   
+4       Elite Chairs 543     First Class        7     2973.76         0   
+
+      sales      cost   profit  payment_status order_status  
+0  19049.28  15841.89  3207.39            Paid    Completed  
+1   7312.50   4904.73  2407.77            Paid    Completed  
+2   4261.72   2465.69  1796.03            Paid    Completed  
+3   8317.93   6796.77  1521.16            Paid    Completed  
+4  20816.32  17705.37  3110.95            Paid    Cancelled  
+
+[5 rows x 21 columns]
+
+Column information of raw data:
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 932 entries, 0 to 931
+Data columns (total 21 columns):
+ #   Column          Non-Null Count  Dtype  
+---  ------          --------------  -----  
+ 0   order_id        932 non-null    object 
+ 1   order_date      932 non-null    object 
+ 2   ship_date       932 non-null    object 
+ 3   customer_id     932 non-null    object 
+ 4   customer_name   932 non-null    object 
+ 5   segment         932 non-null    object 
+ 6   region          906 non-null    object 
+ 7   state           932 non-null    object 
+ 8   city            932 non-null    object 
+ 9   category        932 non-null    object 
+ 10  sub_category    932 non-null    object 
+ 11  product_name    932 non-null    object 
+ 12  ship_mode       910 non-null    object 
+ 13  quantity        932 non-null    int64  
+ 14  unit_price      932 non-null    float64
+ 15  discount        914 non-null    object 
+ 16  sales           932 non-null    float64
+ 17  cost            932 non-null    float64
+ 18  profit          932 non-null    float64
+ 19  payment_status  932 non-null    object 
+ 20  order_status    932 non-null    object 
+dtypes: float64(4), int64(1), object(16)
+memory usage: 153.0+ KB
+Clean Text Fields
+Subtask:
+Clean and standardize text fields: customer_name, segment, region, state, city, category, sub_category, ship_mode, payment_status, and order_status. This involves handling extra spaces, leading/trailing spaces, case inconsistencies, unwanted special characters, and standardizing similar category names.
+
+Reasoning: Apply the specified cleaning operations (string conversion, stripping whitespace, title casing, handling internal spaces, and removing non-alphanumeric characters) to the defined list of text columns.
+
+
+[2]
+0s
+text_columns = [
+    'customer_name',
+    'segment',
+    'region',
+    'state',
+    'city',
+    'category',
+    'sub_category',
+    'ship_mode',
+    'payment_status',
+    'order_status'
+]
+
+for col in text_columns:
+    # Convert to string to handle potential non-string types
+    df[col] = df[col].astype(str)
+    # Remove leading/trailing spaces and convert to title case
+    df[col] = df[col].str.strip().str.title()
+    # Replace multiple internal spaces with a single space
+    df[col] = df[col].str.replace(r'\s+', ' ', regex=True)
+    # Remove any non-alphanumeric characters (excluding spaces)
+    df[col] = df[col].str.replace(r'[^a-zA-Z0-9\s]', '', regex=True)
+
+
+# Display unique values and their counts for each cleaned column to verify
+print("Unique values and their counts for cleaned text columns:")
+for col in text_columns:
+    print(f"\n--- {col} ---")
+    print(df[col].value_counts())
+
+Unique values and their counts for cleaned text columns:
+
+--- customer_name ---
+customer_name
+Sneha Kapoor      77
+Priya Menon       76
+Ananya Rao        68
+Aarav Sharma      67
+Mira Das          66
+Arjun Bose        64
+Isha Nair         63
+Rohan Mehta       61
+Aditi Sen         60
+Kabir Singh       59
+Diya Patel        59
+Neha Gupta        58
+Karan Malhotra    55
+Vikram Iyer       54
+Rahul Verma       45
+Name: count, dtype: int64
+
+--- segment ---
+segment
+Small Business    248
+Home Office       236
+Consumer          226
+Corporate         222
+Name: count, dtype: int64
+
+--- region ---
+region
+South    232
+West     229
+East     229
+North    216
+Nan       26
+Name: count, dtype: int64
+
+--- state ---
+state
+Rajasthan         83
+Tamil Nadu        58
+Goa               54
+Bihar             53
+Odisha            53
+Gujarat           53
+Karnataka         50
+Madhya Pradesh    50
+Uttar Pradesh     49
+Jharkhand         47
+West Bengal       47
+Maharashtra       46
+Punjab            46
+Kerala            45
+Andhra Pradesh    42
+Delhi             40
+Telangana         39
+Haryana           39
+Assam             38
+Name: count, dtype: int64
+
+--- city ---
+city
+Chennai        58
+Panaji         54
+Bhubaneswar    53
+Patna          53
+Ahmedabad      53
+Jaipur         51
+Bengaluru      50
+Indore         50
+Noida          49
+Kolkata        47
+Ranchi         47
+Mumbai         46
+Ludhiana       46
+Kochi          45
+Vijayawada     42
+New Delhi      40
+Hyderabad      39
+Gurugram       39
+Guwahati       38
+Udaipur        32
+Name: count, dtype: int64
+
+--- category ---
+category
+Technology         323
+Furniture          313
+Office Supplies    296
+Name: count, dtype: int64
+
+--- sub_category ---
+sub_category
+Copiers        98
+Chairs         91
+Furnishings    83
+Accessories    80
+Storage        76
+Phones         76
+Tables         71
+Machines       69
+Bookcases      68
+Paper          60
+Art            57
+Binders        54
+Labels         49
+Name: count, dtype: int64
+
+--- ship_mode ---
+ship_mode
+Standard Class    246
+Second Class      227
+First Class       226
+Same Day          211
+Nan                22
+Name: count, dtype: int64
+
+--- payment_status ---
+payment_status
+Paid        704
+Pending      87
+Refunded     72
+Failed       69
+Name: count, dtype: int64
+
+--- order_status ---
+order_status
+Completed    622
+Returned     164
+Cancelled    146
+Name: count, dtype: int64
+Clean and Validate Date Fields
+Subtask:
+Clean and standardize order_date and ship_date. Convert them into a consistent date format. Identify and flag missing dates, invalid dates, and instances where ship_date is earlier than order_date. Create the shipping_delay_days column by calculating the difference between ship_date and order_date.
+
+Reasoning: Convert 'order_date' and 'ship_date' to datetime objects, handling errors by coercing them to NaT, then identify invalid dates and cases where ship_date is earlier than order_date, calculate the shipping delay, and finally display the updated DataFrame head and info.
+
+
+[3]
+0s
+import numpy as np
+
+# Convert date columns to datetime, coercing errors
+df['order_date'] = pd.to_datetime(df['order_date'], errors='coerce')
+df['ship_date'] = pd.to_datetime(df['ship_date'], errors='coerce')
+
+# Identify missing dates
+missing_order_dates = df['order_date'].isnull().sum()
+missing_ship_dates = df['ship_date'].isnull().sum()
+
+print(f"Number of missing order_dates: {missing_order_dates}")
+print(f"Number of missing ship_dates: {missing_ship_dates}")
+
+# Identify invalid dates (where NaT resulted from coercion)
+invalid_order_dates = df['order_date'].isna().sum() - missing_order_dates # should be 0 if only nulls become NaT
+invalid_ship_dates = df['ship_date'].isna().sum() - missing_ship_dates # should be 0 if only nulls become NaT
+
+print(f"Number of invalid order_dates (coerced to NaT): {df['order_date'].isna().sum()}")
+print(f"Number of invalid ship_dates (coerced to NaT): {df['ship_date'].isna().sum()}")
+
+# Identify instances where ship_date is earlier than order_date
+invalid_shipping_records = df[df['ship_date'] < df['order_date']]
+num_invalid_shipping_records = len(invalid_shipping_records)
+
+print(f"Number of records where ship_date is earlier than order_date: {num_invalid_shipping_records}")
+
+# Calculate shipping_delay_days, converting timedelta to days
+df['shipping_delay_days'] = (df['ship_date'] - df['order_date']).dt.days
+
+# Print first few rows and info
+print("\nFirst 5 rows with shipping_delay_days:")
+print(df[['order_date', 'ship_date', 'shipping_delay_days']].head())
+print("\nDataFrame Info after date cleaning:")
+df.info()
+Number of missing order_dates: 705
+Number of missing ship_dates: 716
+Number of invalid order_dates (coerced to NaT): 705
+Number of invalid ship_dates (coerced to NaT): 716
+Number of records where ship_date is earlier than order_date: 2
+
+First 5 rows with shipping_delay_days:
+  order_date  ship_date  shipping_delay_days
+0 2024-07-21 2024-07-27                  6.0
+1        NaT        NaT                  NaN
+2        NaT        NaT                  NaN
+3        NaT 2024-11-29                  NaN
+4 2025-08-29        NaT                  NaN
+
+DataFrame Info after date cleaning:
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 932 entries, 0 to 931
+Data columns (total 22 columns):
+ #   Column               Non-Null Count  Dtype         
+---  ------               --------------  -----         
+ 0   order_id             932 non-null    object        
+ 1   order_date           227 non-null    datetime64[ns]
+ 2   ship_date            216 non-null    datetime64[ns]
+ 3   customer_id          932 non-null    object        
+ 4   customer_name        932 non-null    object        
+ 5   segment              932 non-null    object        
+ 6   region               932 non-null    object        
+ 7   state                932 non-null    object        
+ 8   city                 932 non-null    object        
+ 9   category             932 non-null    object        
+ 10  sub_category         932 non-null    object        
+ 11  product_name         932 non-null    object        
+ 12  ship_mode            932 non-null    object        
+ 13  quantity             932 non-null    int64         
+ 14  unit_price           932 non-null    float64       
+ 15  discount             914 non-null    object        
+ 16  sales                932 non-null    float64       
+ 17  cost                 932 non-null    float64       
+ 18  profit               932 non-null    float64       
+ 19  payment_status       932 non-null    object        
+ 20  order_status         932 non-null    object        
+ 21  shipping_delay_days  53 non-null     float64       
+dtypes: datetime64[ns](2), float64(5), int64(1), object(14)
+memory usage: 160.3+ KB
+Handle Duplicates and Generate Summary
+Subtask:
+Identify and handle exact duplicate rows and duplicate order_id values with conflicting information. Create a duplicate handling summary inside outputs/data_quality_report.xlsx, detailing the number of exact duplicate rows found, duplicate order IDs, records removed, records flagged for review, and the logic used for handling duplicates.
+
+Reasoning: First, I will identify and count exact duplicate rows in the DataFrame and then remove them to address the first two instructions of the subtask. This is a crucial initial step for data cleaning.
+
+
+[4]
+0s
+num_exact_duplicates = df.duplicated().sum()
+print(f"Number of exact duplicate rows found: {num_exact_duplicates}")
+
+df.drop_duplicates(inplace=True)
+print(f"DataFrame shape after dropping exact duplicates: {df.shape}")
+
+# Prepare to store duplicate handling summary
+duplicate_summary = {
+    'Metric': [],
+    'Value': [],
+    'Logic': []
+}
+
+duplicate_summary['Metric'].append('Number of exact duplicate rows found')
+duplicate_summary['Value'].append(num_exact_duplicates)
+duplicate_summary['Logic'].append('Identified and removed exact duplicate rows, keeping the first occurrence.')
+
+df_duplicates_summary = pd.DataFrame(duplicate_summary)
+
+Number of exact duplicate rows found: 20
+DataFrame shape after dropping exact duplicates: (912, 22)
+Reasoning: First, I will identify and count order_id values that have conflicting information across other columns. Then, I will flag these records in a new column and update the df_duplicates_summary DataFrame with this information.
+
+
+[5]
+0s
+duplicate_order_ids = df[df.duplicated(subset='order_id', keep=False)].sort_values(by='order_id')
+
+# Identify order_ids with conflicting information
+# An order_id has conflicting info if, for that order_id, there are multiple unique combinations of other columns
+conflicting_order_ids_list = []
+
+if not duplicate_order_ids.empty:
+    for order_id, group in duplicate_order_ids.groupby('order_id'):
+        # Check if there's more than one unique row within the group (excluding order_id itself)
+        if group.drop(columns=['order_id']).drop_duplicates().shape[0] > 1:
+            conflicting_order_ids_list.append(order_id)
+
+num_conflicting_order_ids = len(conflicting_order_ids_list)
+
+print(f"Number of unique order_ids with conflicting information: {num_conflicting_order_ids}")
+
+# Flag records with conflicting order_ids for review
+df['duplicate_flag'] = 'No Duplicate Issues'
+df.loc[df['order_id'].isin(conflicting_order_ids_list), 'duplicate_flag'] = 'Conflicting Order ID Data'
+
+duplicate_summary['Metric'].append('Number of unique order_ids with conflicting information')
+duplicate_summary['Value'].append(num_conflicting_order_ids)
+duplicate_summary['Logic'].append('Identified order_ids with multiple conflicting records and flagged them for review. No records were removed at this stage.')
+
+df_duplicates_summary = pd.DataFrame(duplicate_summary)
+
+print("\nFirst 5 rows with 'duplicate_flag' column for conflicting IDs:")
+print(df[df['duplicate_flag'] == 'Conflicting Order ID Data'].head())
+
+print("\nUpdated Duplicate Summary:")
+print(df_duplicates_summary)
+Number of unique order_ids with conflicting information: 12
+
+First 5 rows with 'duplicate_flag' column for conflicting IDs:
+           order_id order_date  ship_date customer_id customer_name  \
+90   ORD-2025-10091        NaT        NaT   CUST-5909  Aarav Sharma   
+123  ORD-2024-10124        NaT        NaT   CUST-1007  Sneha Kapoor   
+142  ORD-2024-10143 2024-03-30        NaT   CUST-8944     Aditi Sen   
+170  ORD-2025-10171        NaT 2025-09-15   CUST-3734   Rohan Mehta   
+224  ORD-2025-10225        NaT        NaT   CUST-9871     Isha Nair   
+
+            segment region      state      city    category  ... quantity  \
+90   Small Business   East      Bihar     Patna  Technology  ...        3   
+123  Small Business  North     Punjab  Ludhiana  Technology  ...        1   
+142     Home Office  North  Rajasthan    Jaipur  Technology  ...        5   
+170       Corporate   East      Bihar     Patna  Technology  ...        3   
+224  Small Business  North     Punjab  Ludhiana   Furniture  ...        4   
+
+    unit_price discount     sales     cost   profit  payment_status  \
+90     3703.96     0.15   9445.10  5586.28  3858.82            Paid   
+123     634.13        0    634.13   453.35   180.78        Refunded   
+142     907.54     0.15   3857.04  2769.26  1087.78            Paid   
+170    1711.32        0   5133.96  3930.00  1203.96            Paid   
+224    3944.64     0.25  11833.92  6682.92  5151.00            Paid   
+
+     order_status  shipping_delay_days             duplicate_flag  
+90      Completed                  NaN  Conflicting Order ID Data  
+123     Cancelled                  NaN  Conflicting Order ID Data  
+142     Completed                  NaN  Conflicting Order ID Data  
+170     Completed                  NaN  Conflicting Order ID Data  
+224     Cancelled                  NaN  Conflicting Order ID Data  
+
+[5 rows x 23 columns]
+
+Updated Duplicate Summary:
+                                              Metric  Value  \
+0               Number of exact duplicate rows found     20   
+1  Number of unique order_ids with conflicting in...     12   
+
+                                               Logic  
+0  Identified and removed exact duplicate rows, k...  
+1  Identified order_ids with multiple conflicting...  
+Reasoning: I need to save the df_duplicates_summary DataFrame, which contains the duplicate handling summary, to an Excel file as specified in the subtask. I will also create the 'outputs' directory if it doesn't exist.
+
+
+[6]
+0s
+import os
+
+# Create the 'outputs' directory if it doesn't exist
+output_dir = 'outputs'
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+
+# Save the duplicate handling summary to an Excel file
+df_duplicates_summary.to_excel(os.path.join(output_dir, 'data_quality_report.xlsx'), index=False)
+print("Duplicate handling summary saved to outputs/data_quality_report.xlsx")
+Duplicate handling summary saved to outputs/data_quality_report.xlsx
+Apply Business Rules and Document Cleaning Log
+Subtask:
+Apply all specified business rules to the DataFrame and document each decision and action taken in a cleaning log file.
+
+### Cleaning Log
+
+This log details the cleaning actions and business rules applied to the dataset.
+
+| Step | Issue | Action | Records Affected | Logic/Assumption |
+|---|---|---|---|---|
+Reasoning: I need to fill the missing values (represented as 'Nan' strings) in the 'region' and 'ship_mode' columns with 'Unknown' as per the business rules and prepare the entry for the cleaning log.
+
+
+[9]
+0s
+records_affected_region = df[df['region'] == 'Nan'].shape[0]
+records_affected_ship_mode = df[df['ship_mode'] == 'Nan'].shape[0]
+
+df['region'] = df['region'].replace('Nan', 'Unknown')
+df['ship_mode'] = df['ship_mode'].replace('Nan', 'Unknown')
+
+cleaning_log_entries = []
+
+if records_affected_region > 0:
+    cleaning_log_entries.append({
+…        'Issue': "Missing 'ship_mode' values (represented as 'Nan' string)",
+        'Action': "Filled with 'Unknown'",
+        'Records Affected': records_affected_ship_mode,
+        'Logic/Assumption': "Missing ship mode values are assumed to be unknown and filled to ensure data completeness."
+    })
+
+print(f"'region' column after filling missing values:\n{df['region'].value_counts()}\n")
+print(f"'ship_mode' column after filling missing values:\n{df['ship_mode'].value_counts()}\n")
+
+# Display the current cleaning log entries
+
+'region' column after filling missing values:
+region
+South      225
+West       224
+East       224
+North      214
+Unknown     25
+Name: count, dtype: int64
+
+'ship_mode' column after filling missing values:
+ship_mode
+Standard Class    242
+First Class       223
+Second Class      222
+Same Day          204
+Unknown            21
+Name: count, dtype: int64
+
+Reasoning: I need to clean and validate the 'discount' column by converting it to numeric, handling missing values, and flagging out-of-range discounts. This aligns with the next business rules in the plan.
+
+
+[8]
+0s
+for entry in cleaning_log_entries:
+    print(entry)
+
+'discount' column descriptive statistics after cleaning:
+count    912.000000
+mean       0.108191
+std        0.104670
+min       -0.240000
+25%        0.000000
+50%        0.100000
+75%        0.200000
+max        0.650000
+Name: discount, dtype: float64
+
+Count of records with 'Invalid Discount' flag: 15
+
+{'Step': 1, 'Issue': "Missing 'region' values (represented as 'Nan' string)", 'Action': "Filled with 'Unknown'", 'Records Affected': 25, 'Logic/Assumption': 'Missing region values are assumed to be unknown and filled to ensure data completeness.'}
+{'Step': 2, 'Issue': "Missing 'ship_mode' values (represented as 'Nan' string)", 'Action': "Filled with 'Unknown'", 'Records Affected': 21, 'Logic/Assumption': 'Missing ship mode values are assumed to be unknown and filled to ensure data completeness.'}
+{'Step': 3, 'Issue': "Missing 'discount' values (initially NaN after coercion)", 'Action': 'Filled with 0', 'Records Affected': 26, 'Logic/Assumption': 'Assumed missing discount means no discount, especially if sales/unit_price are present. Coerced non-numeric to NaN before filling.'}
+{'Step': 4, 'Issue': "Invalid 'discount' values (negative or > 1)

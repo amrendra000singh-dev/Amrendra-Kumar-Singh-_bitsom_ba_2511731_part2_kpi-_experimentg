@@ -1,0 +1,56 @@
+
+else:
+    df['data_quality_flag'] = df['data_quality_flag'].fillna('Clean')
+
+print("First 5 rows with new date-based calculated columns:")
+print(df[['order_date', 'order_month', 'order_year']].head())
+print("\nUnique values in 'data_quality_flag' after initialization:")
+print(df['data_quality_flag'].value_counts())
+
+print("\nDataFrame Info after adding all calculated columns:")
+df.info()
+First 5 rows with new date-based calculated columns:
+  order_date  order_month  order_year
+0 2024-07-21          7.0      2024.0
+1        NaT          NaN         NaN
+2        NaT          NaN         NaN
+3        NaT          NaN         NaN
+4 2025-08-29          8.0      2025.0
+
+Unique values in 'data_quality_flag' after initialization:
+data_quality_flag
+Clean                                           589
+Order/Payment Status Issue                      306
+Invalid Discount                                 11
+Invalid Discount, Order/Payment Status Issue      4
+Invalid Shipping Date                             2
+Name: count, dtype: int64
+
+DataFrame Info after adding all calculated columns:
+<class 'pandas.core.frame.DataFrame'>
+Index: 912 entries, 0 to 931
+Data columns (total 30 columns):
+ #   Column               Non-Null Count  Dtype         
+---  ------               --------------  -----         
+ 0   order_id             912 non-null    object        
+ 1   order_date           224 non-null    datetime64[ns]
+ 2   ship_date            210 non-null    datetime64[ns]
+ 3   customer_id          912 non-null    object        
+ 4   customer_name        912 non-null    object        
+ 5   segment              912 non-null    object        
+ 6   region               912 non-null    object 
+
+
+mport pandas as pd
+import os
+
+# Ensure the output directory exists
+output_dir = 'outputs'
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+
+# Create an ExcelWriter object for the pivot summary report
+pivot_report_path = os.path.join(output_dir, 'pivot_summary.xlsx')
+writer_pivot = pd.ExcelWriter(pivot_report_path, engine='xlsxwriter')
+
+print(f"ExcelWriter initialized for '{pivot_report_path}'.")

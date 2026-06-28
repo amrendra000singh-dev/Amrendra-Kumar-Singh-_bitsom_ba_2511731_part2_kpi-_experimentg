@@ -1,0 +1,44 @@
+uplicate_order_ids = df[df.duplicated(subset='order_id', keep=False)].sort_values(by='order_id')
+
+# Identify order_ids with conflicting information
+# An order_id has conflicting info if, for that order_id, there are multiple unique combinations of other columns
+conflicting_order_ids_list = []
+
+if not duplicate_order_ids.empty:
+    for order_id, group in duplicate_order_ids.groupby('order_id'):
+        # Check if there's more than one unique row within the group (excluding order_id itself)
+        if group.drop(columns=['order_id']).drop_duplicates().shape[0] > 1:
+            conflicting_order_ids_list.append(order_id)
+
+num_conflicting_order_ids = len(conflicting_order_ids_list)
+
+print(f"Number of unique order_ids with conflicting information: {num_conflicting_order_ids}")
+
+# Flag records with conflicting order_ids for review
+df['duplicate_flag'] = 'No Duplicate Issues'
+df.loc[df['order_id'].isin(conflicting_order_ids_list), 'duplicate_flag'] = 'Conflicting Order ID Data'
+
+duplicate_summary['Metric'].append('Number of unique order_ids with conflicting information')
+duplicate_summary['Value'].append(num_conflicting_order_ids)
+duplicate_summary['Logic'].append('Identified order_ids with multiple conflicting records and flagged them for review. No records were removed at this stage.')
+
+df_duplicates_summary = pd.DataFrame(duplicate_summary)
+
+print("\nFirst 5 rows with 'duplicate_flag' column for conflicting IDs:")
+print(df[df['duplicate_flag'] == 'Conflicting Order ID Data'].head())
+
+print("\nUpdated Duplicate Summary:")
+print(df_duplicates_summary)
+
+
+---------------------------------------
+mport os
+
+# Create the 'outputs' directory if it doesn't exist
+output_dir = 'outputs'
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
+
+# Save the duplicate handling summary to an Excel file
+df_duplicates_summary.to_excel(os.path.join(output_dir, 'data_quality_report.xlsx'), index=False)
+print("Duplicate handling summary saved to outputs/data_quality_report.xlsx")

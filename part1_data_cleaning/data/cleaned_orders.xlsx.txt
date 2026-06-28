@@ -1,0 +1,157 @@
+text_columns = [
+    'customer_name',
+    'segment',
+    'region',
+    'state',
+    'city',
+    'category',
+    'sub_category',
+    'ship_mode',
+    'payment_status',
+    'order_status'
+]
+
+for col in text_columns:
+    # Convert to string to handle potential non-string types
+    df[col] = df[col].astype(str)
+    # Remove leading/trailing spaces and convert to title case
+    df[col] = df[col].str.strip().str.title()
+    # Replace multiple internal spaces with a single space
+    df[col] = df[col].str.replace(r'\s+', ' ', regex=True)
+    # Remove any non-alphanumeric characters (excluding spaces)
+    df[col] = df[col].str.replace(r'[^a-zA-Z0-9\s]', '', regex=True)
+
+Unique values and their counts for cleaned text columns:
+
+--- customer_name ---
+customer_name
+Sneha Kapoor      77
+Priya Menon       76
+Ananya Rao        68
+Aarav Sharma      67
+Mira Das          66
+Arjun Bose        64
+Isha Nair         63
+Rohan Mehta       61
+Aditi Sen         60
+Kabir Singh       59
+Diya Patel        59
+Neha Gupta        58
+Karan Malhotra    55
+Vikram Iyer       54
+Rahul Verma       45
+Name: count, dtype: int64
+
+--- segment ---
+segment
+Small Business    248
+Home Office       236
+Consumer          226
+Corporate         222
+Name: count, dtype: int64
+
+--- region ---
+region
+South    232
+West     229
+East     229
+North    216
+Nan       26
+Name: count, dtype: int64
+
+--- state ---
+state
+Rajasthan         83
+Tamil Nadu        58
+Goa               54
+Bihar             53
+Odisha            53
+Gujarat           53
+Karnataka         50
+Madhya Pradesh    50
+Uttar Pradesh     49
+Jharkhand         47
+West Bengal       47
+Maharashtra       46
+Punjab            46
+Kerala            45
+Andhra Pradesh    42
+Delhi             40
+Telangana         39
+Haryana           39
+Assam             38
+Name: count, dtype: int64
+
+--- city ---
+city
+Chennai        58
+Panaji         54
+Bhubaneswar    53
+Patna          53
+Ahmedabad      53
+Jaipur         51
+Bengaluru      50
+Indore         50
+Noida          49
+Kolkata        47
+Ranchi         47
+Mumbai         46
+Ludhiana       46
+Kochi          45
+Vijayawada     42
+New Delhi      40
+Hyderabad      39
+Gurugram       39
+Guwahati       38
+Udaipur        32
+Name: count, dtype: int64
+
+--- category ---
+category
+Technology         323
+Furniture          313
+Office Supplies    296
+Name: count, dtype: int64
+
+--- sub_category ---
+sub_category
+Copiers        98
+Chairs         91
+Furnishings    83
+Accessories    80
+Storage        76
+Phones         76
+Tables         71
+Machines       69
+Bookcases      68
+Paper          60
+Art            57
+Binders        54
+Labels         49
+Name: count, dtype: int64
+
+--- ship_mode ---
+ship_mode
+Standard Class    246
+Second Class      227
+First Class       226
+Same Day          211
+Nan                22
+Name: count, dtype: int64
+
+--- payment_status ---
+payment_status
+Paid        704
+Pending      87
+Refunded     72
+Failed       69
+Name: count, dtype: int64
+
+--- order_status ---
+order_status
+Completed    622
+Returned     164
+Cancelled    146
+Name: count, dtype: int64
+
+

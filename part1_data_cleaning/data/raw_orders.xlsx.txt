@@ -1,0 +1,38 @@
+mport numpy as np
+
+# Convert date columns to datetime, coercing errors
+df['order_date'] = pd.to_datetime(df['order_date'], errors='coerce')
+df['ship_date'] = pd.to_datetime(df['ship_date'], errors='coerce')
+
+# Identify missing dates
+missing_order_dates = df['order_date'].isnull().sum()
+missing_ship_dates = df['ship_date'].isnull().sum()
+
+print(f"Number of missing order_dates: {missing_order_dates}")
+print(f"Number of missing ship_dates: {missing_ship_dates}")
+
+# Identify invalid dates (where NaT resulted from coercion)
+invalid_order_dates = df['order_date'].isna().sum() - missing_order_dates # should be 0 if only nulls become NaT
+invalid_ship_dates = df['ship_date'].isna().sum() - missing_ship_dates # should be 0 if only nulls become NaT
+
+print(f"Number of invalid order_dates (coerced to NaT): {df['order_date'].isna().sum()}")
+print(f"Number of invalid ship_dates (coerced to NaT): {df['ship_date'].isna().sum()}")
+
+# Identify instances where ship_date is earlier than order_date
+invalid_shipping_records = df[df['ship_date'] < df['order_date']]
+num_invalid_shipping_records = len(invalid_shipping_records)
+
+print(f"Number of records where ship_date is earlier than order_date: {num_invalid_shipping_records}")
+
+# Calculate shipping_delay_days, converting timedelta to days
+df['shipping_delay_days'] = (df['ship_date'] - df['order_date']).dt.days
+
+# Print first few rows and info
+print("\nFirst 5 rows with shipping_delay_days:")
+print(df[['order_date', 'ship_date', 'shipping_delay_days']].head())
+print("\nDataFrame Info after date cleaning:")
+df.info()
+
+
+
+----------------------------------------

@@ -1,0 +1,16 @@
+Pivot Summary 2: Sales and Profit by Category and Sub-Category ---
+|                                |   calculated_profit |   calculated_sales |
+|:-------------------------------|--------------------:|-------------------:|
+| ('Furniture', 'Bookcases')     |              186707 |             674055 |
+| ('Furniture', 'Chairs')        |              286451 |             975878 |
+| ('Furniture', 'Furnishings')   |              229569 |             789809 |
+| ('Furniture', 'Tables')        |              210164 |             680301 |
+| ('Office Supplies', 'Art')     |              161136 |             576622 |
+| ('Office Supplies', 'Binders') |              166545 |             555372 |
+| ('Office Supplies', 'Labels')  |              109654 |             345052 |
+| ('Office Supplies', 'Paper')   |              178622 |             618543 |
+| ('Office Supplies', 'Storage') |              178312 |             677854 |
+| ('Technology', 'Accessories')  |              240329 |             814007 |
+| ('Technology', 'Copiers')      |              266381 |             897783 |
+| ('Technology', 'Machines')     |              210973 |             660499 |
+| ('Technology', 'Phones')       |              232838 |             800464 |

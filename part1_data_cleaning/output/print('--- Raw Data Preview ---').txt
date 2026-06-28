@@ -1,0 +1,5 @@
+print('--- Raw Data Preview ---')
+print('First 5 rows of df_raw:')
+print(df_raw.head().to_markdown(index=False))
+print(f'Shape of df_raw: {df_raw.shape}')
+print(f'Columns in df_raw: {df_raw.columns.tolist()}')
